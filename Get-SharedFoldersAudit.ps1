@@ -337,13 +337,13 @@ if ($results.Count -gt 0) {
 else {
     @($emptyMainRow) | Export-Csv -Path $CsvPath_Main -NoTypeInformation -Encoding UTF8
 }
-Write-Host "✓ Main audit report: $CsvPath_Main" -ForegroundColor Green
+Write-Host "[OK] Main audit report: $CsvPath_Main" -ForegroundColor Green
 Write-Host "  Total shares audited: $($results.Count)" -ForegroundColor Green
 
 # Detailed permissions report
 if ($permissionsDetails.Count -gt 0) {
     $permissionsDetails | Export-Csv -Path $CsvPath_Permissions -NoTypeInformation -Encoding UTF8
-    Write-Host "✓ Detailed permissions report: $CsvPath_Permissions" -ForegroundColor Green
+    Write-Host "[OK] Detailed permissions report: $CsvPath_Permissions" -ForegroundColor Green
     Write-Host "  Total permission entries: $($permissionsDetails.Count)" -ForegroundColor Green
 }
 else {
@@ -357,14 +357,14 @@ else {
         ShareInheritanceDisabled = $false
     }
     @($emptyPermissionsRow) | Export-Csv -Path $CsvPath_Permissions -NoTypeInformation -Encoding UTF8
-    Write-Host "✓ Detailed permissions report: $CsvPath_Permissions" -ForegroundColor Green
+    Write-Host "[OK] Detailed permissions report: $CsvPath_Permissions" -ForegroundColor Green
     Write-Host "  Total permission entries: 0" -ForegroundColor Green
 }
 
 # No inheritance report
 if ($noInheritanceResults.Count -gt 0) {
     $noInheritanceResults | Sort-Object LocalPath | Export-Csv -Path $CsvPath_NoInheritance -NoTypeInformation -Encoding UTF8
-    Write-Host "✓ Disabled inheritance report: $CsvPath_NoInheritance" -ForegroundColor Green
+    Write-Host "[OK] Disabled inheritance report: $CsvPath_NoInheritance" -ForegroundColor Green
     Write-Host "  Folders/shares with disabled inheritance: $($noInheritanceResults.Count)" -ForegroundColor Yellow
 }
 else {
@@ -384,7 +384,7 @@ else {
     Write-Host "! No folders found with disabled inheritance" -ForegroundColor Cyan
 }
 
-Write-Host "`n✓ Audit complete! All files saved to: $OutFolder" -ForegroundColor Green
+Write-Host "`n[OK] Audit complete! All files saved to: $OutFolder" -ForegroundColor Green
 Write-Host "`nFiles created:" -ForegroundColor Cyan
 Write-Host "  1. SharedFoldersAudit_Main.csv - Main audit report" -ForegroundColor White
 Write-Host "  2. SharedFoldersAudit_Permissions_Detailed.csv - Detailed permissions per identity" -ForegroundColor White
