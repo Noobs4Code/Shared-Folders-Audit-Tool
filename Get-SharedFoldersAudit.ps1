@@ -5,6 +5,23 @@
 
 $ErrorActionPreference = "Stop"
 
+# Guard rails: the script relies on Windows SMB/NTFS cmdlets and admin rights.
+if (-not $IsWindows) {
+    throw "This script must run on Windows because it uses Get-SmbShare, Get-Acl, and Get-WinEvent, which are not available on this platform."
+}
+
+$requiredCommands = @('Get-SmbShare', 'Get-Acl', 'Get-ChildItem', 'Export-Csv')
+foreach ($cmd in $requiredCommands) {
+    if (-not (Get-Command -Name $cmd -ErrorAction SilentlyContinue)) {
+        throw "Required command '$cmd' was not found. Run this script on a Windows machine with the SMB/NTFS cmdlets available."
+    }
+}
+
+$currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    throw "This script must be run as Administrator to enumerate SMB shares and read NTFS permissions."
+}
+
 # --------------------------
 # Configuration
 # --------------------------
@@ -210,7 +227,13 @@ if (-not (Test-Path -LiteralPath $OutFolder)) {
 # Gather shares
 # --------------------------
 Write-Host "Scanning shared folders..." -ForegroundColor Cyan
-$allShares = Get-SmbShare | Where-Object { $_.Path -and $_.Path -ne "" }
+try {
+    $allShares = @(Get-SmbShare -ErrorAction Stop | Where-Object { $_.Path -and $_.Path -ne "" })
+}
+catch {
+    Write-Warning "Unable to enumerate SMB shares. Verify the machine is Windows and the SMB Share cmdlets are available. $($_.Exception.Message)"
+    $allShares = @()
+}
 
 $results = @()
 $noInheritanceResults = @()
@@ -295,8 +318,25 @@ foreach ($share in $allShares) {
 # --------------------------
 Write-Host "Exporting results..." -ForegroundColor Cyan
 
-# Main audit report
-$results | Sort-Object ShareName | Export-Csv -Path $CsvPath_Main -NoTypeInformation -Encoding UTF8
+$emptyMainRow = [PSCustomObject]@{
+    ShareName = ""
+    LocalPath = ""
+    Description = "No SMB shares detected"
+    TotalSizeGB = $null
+    FileCount = 0
+    FolderCount = 0
+    Owner = ""
+    InheritanceDisabled = $false
+    ActiveUsers90d = ""
+    NTFSPermissions = ""
+}
+
+if ($results.Count -gt 0) {
+    $results | Sort-Object ShareName | Export-Csv -Path $CsvPath_Main -NoTypeInformation -Encoding UTF8
+}
+else {
+    @($emptyMainRow) | Export-Csv -Path $CsvPath_Main -NoTypeInformation -Encoding UTF8
+}
 Write-Host "✓ Main audit report: $CsvPath_Main" -ForegroundColor Green
 Write-Host "  Total shares audited: $($results.Count)" -ForegroundColor Green
 
@@ -306,6 +346,20 @@ if ($permissionsDetails.Count -gt 0) {
     Write-Host "✓ Detailed permissions report: $CsvPath_Permissions" -ForegroundColor Green
     Write-Host "  Total permission entries: $($permissionsDetails.Count)" -ForegroundColor Green
 }
+else {
+    $emptyPermissionsRow = [PSCustomObject]@{
+        ShareName = ""
+        LocalPath = ""
+        Identity = ""
+        FileSystemRights = ""
+        AccessControlType = ""
+        IsInherited = $false
+        ShareInheritanceDisabled = $false
+    }
+    @($emptyPermissionsRow) | Export-Csv -Path $CsvPath_Permissions -NoTypeInformation -Encoding UTF8
+    Write-Host "✓ Detailed permissions report: $CsvPath_Permissions" -ForegroundColor Green
+    Write-Host "  Total permission entries: 0" -ForegroundColor Green
+}
 
 # No inheritance report
 if ($noInheritanceResults.Count -gt 0) {
@@ -314,6 +368,19 @@ if ($noInheritanceResults.Count -gt 0) {
     Write-Host "  Folders/shares with disabled inheritance: $($noInheritanceResults.Count)" -ForegroundColor Yellow
 }
 else {
+    $emptyInheritanceRow = [PSCustomObject]@{
+        ShareName = ""
+        LocalPath = ""
+        Description = "No folders with disabled inheritance detected"
+        TotalSizeGB = $null
+        FileCount = 0
+        FolderCount = 0
+        Owner = ""
+        InheritanceDisabled = $false
+        ActiveUsers90d = ""
+        NTFSPermissions = ""
+    }
+    @($emptyInheritanceRow) | Export-Csv -Path $CsvPath_NoInheritance -NoTypeInformation -Encoding UTF8
     Write-Host "! No folders found with disabled inheritance" -ForegroundColor Cyan
 }
 
