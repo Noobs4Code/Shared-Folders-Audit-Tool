@@ -1,12 +1,12 @@
 # Requires: Run as Administrator
 # Purpose: Audit SMB shares for local path, size, file count, recent active users, owner details, NTFS permissions
 #          Export to CSV files, and create separate report for folders with disabled inheritance
-# Output: Saves to $env:USERPROFILE\Downloads\temp\
+# Output: Saves to a fixed Downloads folder for Task Scheduler/system execution
 
 $ErrorActionPreference = "Stop"
 
 # Guard rails: the script relies on Windows SMB/NTFS cmdlets and admin rights.
-if (-not $IsWindows) {
+if ([System.Environment]::OSVersion.Platform -ne "Win32NT") {
     throw "This script must run on Windows because it uses Get-SmbShare, Get-Acl, and Get-WinEvent, which are not available on this platform."
 }
 
@@ -26,7 +26,9 @@ if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
 # Configuration
 # --------------------------
 $username = $env:USERNAME
-$OutFolder = "$env:USERPROFILE\Downloads\temp"
+# IMPORTANT: When Task Scheduler runs as SYSTEM, $env:USERPROFILE will not point to your personal Downloads folder.
+# Replace YOUR_USERNAME below with the actual Windows account name you want to use.
+$OutFolder = "C:\Users\YOUR_USERNAME\Downloads\SharedFoldersAudit"
 $CsvPath_Main = Join-Path $OutFolder "SharedFoldersAudit_Main.csv"
 $CsvPath_NoInheritance = Join-Path $OutFolder "SharedFoldersAudit_NoInheritance.csv"
 $CsvPath_Permissions = Join-Path $OutFolder "SharedFoldersAudit_Permissions_Detailed.csv"
